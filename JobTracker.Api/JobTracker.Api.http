@@ -1,0 +1,17 @@
+@JobTracker.Api_HostAddress = http://localhost:5075
+
+GET {{JobTracker.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
+
+POST http://localhost:5075/api/jobapplications
+Content-Type: application/json
+
+{
+  "company": "Test Co",
+  "role": "Full Stack Developer",
+  "source": "LinkedIn",
+  "status": 0,
+  "dateApplied": "2026-08-22T00:00:00Z"
+}
