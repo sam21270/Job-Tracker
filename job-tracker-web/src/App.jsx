@@ -3,6 +3,7 @@ import axios from 'axios';
 
 const API_URL = 'http://localhost:5075/api/jobapplications';
 const COUNTS_URL = `${API_URL}/counts`;
+const LOGIN_URL = 'http://localhost:5075/api/auth/login';
 
 const statusLabels = ['Applied', 'Assessment', 'Interviewing', 'Rejected', 'Offer'];
 const statusColors = [
@@ -14,28 +15,57 @@ const statusColors = [
 ];
 
 function App() {
+  const [token, setToken] = useState(localStorage.getItem('token'));
+  const [loginForm, setLoginForm] = useState({ username: '', password: '' });
+  const [loginError, setLoginError] = useState('');
+
   const [applications, setApplications] = useState([]);
   const [counts, setCounts] = useState({ total: 0, today: 0, thisWeek: 0, thisMonth: 0 });
   const [form, setForm] = useState({
     company: '', role: '', source: '', status: 0, followUpStatus: '', dateApplied: ''
   });
 
+  const authHeaders = { headers: { Authorization: `Bearer ${token}` } };
+
   const fetchApplications = async () => {
-    const res = await axios.get(API_URL);
+    const res = await axios.get(API_URL, authHeaders);
     setApplications(res.data);
   };
 
   const fetchCounts = async () => {
-    const res = await axios.get(COUNTS_URL);
+    const res = await axios.get(COUNTS_URL, authHeaders);
     setCounts(res.data);
   };
 
   useEffect(() => {
-  (async () => {
-    await fetchApplications();
-    await fetchCounts();
-  })();
-}, []);
+    if (token) {
+      (async () => {
+        await fetchApplications();
+        await fetchCounts();
+      })();
+    }
+  }, [token]);
+
+  const handleLoginChange = (e) => {
+    setLoginForm({ ...loginForm, [e.target.name]: e.target.value });
+  };
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setLoginError('');
+    try {
+      const res = await axios.post(LOGIN_URL, loginForm);
+      localStorage.setItem('token', res.data.token);
+      setToken(res.data.token);
+    } catch {
+      setLoginError('Invalid username or password');
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    setToken(null);
+  };
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -48,22 +78,43 @@ function App() {
       status: Number(form.status),
       dateApplied: new Date(form.dateApplied).toISOString(),
     };
-    await axios.post(API_URL, payload);
+    await axios.post(API_URL, payload, authHeaders);
     setForm({ company: '', role: '', source: '', status: 0, followUpStatus: '', dateApplied: '' });
     fetchApplications();
     fetchCounts();
   };
 
   const handleDelete = async (id) => {
-    await axios.delete(`${API_URL}/${id}`);
+    await axios.delete(`${API_URL}/${id}`, authHeaders);
     fetchApplications();
     fetchCounts();
   };
 
+  if (!token) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <form onSubmit={handleLogin} className="bg-white rounded-lg border border-gray-200 p-8 w-full max-w-sm">
+          <h1 className="text-2xl font-semibold text-gray-900 mb-6">Job Tracker Login</h1>
+          <input name="username" placeholder="Username" value={loginForm.username} onChange={handleLoginChange} required
+            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm mb-3" />
+          <input name="password" type="password" placeholder="Password" value={loginForm.password} onChange={handleLoginChange} required
+            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm mb-3" />
+          {loginError && <p className="text-red-500 text-sm mb-3">{loginError}</p>}
+          <button type="submit" className="w-full bg-gray-900 text-white rounded-md py-2 text-sm font-medium hover:bg-gray-800">
+            Log In
+          </button>
+        </form>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 py-10 px-4">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-semibold text-gray-900 mb-6">Job Tracker</h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-3xl font-semibold text-gray-900">Job Tracker</h1>
+          <button onClick={handleLogout} className="text-sm text-gray-500 hover:text-gray-700">Log out</button>
+        </div>
 
         <div className="grid grid-cols-4 gap-4 mb-8">
           {[
